@@ -1,0 +1,352 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import mysql.connector
+
+# ---------- DATABASE CONNECTION ----------
+def connect_db():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",  # 🔹 Change this
+        password="ananthu",  # 🔹 Change this
+        database="restaurant"  # 🔹 Your DB name
+    )
+
+# ---------- COMMON FUNCTION ----------
+def run_query(query, values=(), fetch=False):
+    con = connect_db()
+    cursor = con.cursor()
+    cursor.execute(query, values)
+    data = None
+    if fetch:
+        data = cursor.fetchall()
+    else:
+        con.commit()
+    con.close()
+    return data
+
+# ---------- MAIN WINDOW ----------
+root = tk.Tk()
+root.title("Restaurant Database Management System")
+root.geometry("1000x700")
+root.configure(bg="lightblue")
+
+tab_control = ttk.Notebook(root)
+tab_customer = ttk.Frame(tab_control)
+tab_meal = ttk.Frame(tab_control)
+tab_order = ttk.Frame(tab_control)
+
+tab_control.add(tab_customer, text="Customer")
+tab_control.add(tab_meal, text="Meal")
+tab_control.add(tab_order, text="Orders")
+tab_control.pack(expand=1, fill="both")
+
+# ---------- CUSTOMER TAB ----------
+tk.Label(tab_customer, text="Customer ID").pack()
+cust_id_entry = tk.Entry(tab_customer)
+cust_id_entry.pack()
+
+tk.Label(tab_customer, text="Customer Name").pack()
+cust_name_entry = tk.Entry(tab_customer)
+cust_name_entry.pack()
+
+tk.Label(tab_customer, text="Phone").pack()
+cust_phone_entry = tk.Entry(tab_customer)
+cust_phone_entry.pack()
+
+tk.Label(tab_customer, text="Address").pack()
+cust_addr_entry = tk.Entry(tab_customer)
+cust_addr_entry.pack()
+
+def add_customer():
+    try:
+        cid = cust_id_entry.get()
+        name = cust_name_entry.get()
+        phone = cust_phone_entry.get()
+        addr = cust_addr_entry.get()
+        run_query(
+            "INSERT INTO Customer (customer_id, customer_name, phone, address) VALUES (%s, %s, %s, %s)",
+            (cid, name, phone, addr)
+        )
+        messagebox.showinfo("Success", "Customer added successfully!")
+        view_customers()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+def view_customers():
+    records = run_query("SELECT * FROM Customer", fetch=True)
+    for row in customer_table.get_children():
+        customer_table.delete(row)
+    for r in records:
+        customer_table.insert("", "end", values=r)
+
+def update_customer():
+    try:
+        cid = cust_id_entry.get().strip()
+        name = cust_name_entry.get()
+        phone = cust_phone_entry.get()
+        addr = cust_addr_entry.get()
+
+        if not cid:
+            messagebox.showerror("Error", "Please enter a Customer ID to update.")
+            return
+
+        run_query(
+            "UPDATE Customer SET customer_name=%s, phone=%s, address=%s WHERE customer_id=%s",
+            (name, phone, addr, cid)
+        )
+        messagebox.showinfo("Success", "Customer updated successfully!")
+        view_customers()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+def delete_customer():
+    try:
+        cid = cust_id_entry.get().strip()
+        if not cid:
+            messagebox.showerror("Error", "Please enter a Customer ID to delete.")
+            return
+
+        orders = run_query("SELECT * FROM Orders WHERE customer_id=%s", (cid,), fetch=True)
+        if orders:
+            confirm = messagebox.askyesno(
+                "Confirm Delete",
+                f"This customer has {len(orders)} orders. Deleting will remove them all. Continue?"
+            )
+            if not confirm:
+                return
+            run_query("DELETE FROM Orders WHERE customer_id=%s", (cid,))
+        
+        run_query("DELETE FROM Customer WHERE customer_id=%s", (cid,))
+        messagebox.showinfo("Success", "Customer and related orders deleted successfully!")
+        view_customers()
+        view_orders()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+btn_add_cust = tk.Button(tab_customer, text="Add Customer", command=add_customer, bg="green", fg="white")
+btn_add_cust.pack(pady=5)
+btn_view_cust = tk.Button(tab_customer, text="View Customers", command=view_customers, bg="blue", fg="white")
+btn_view_cust.pack(pady=5)
+btn_update_cust = tk.Button(tab_customer, text="Update Customer", command=update_customer, bg="orange", fg="white")
+btn_update_cust.pack(pady=5)
+btn_delete_cust = tk.Button(tab_customer, text="Delete Customer", command=delete_customer, bg="red", fg="white")
+btn_delete_cust.pack(pady=5)
+
+columns_c = ("ID", "Name", "Phone", "Address")
+customer_table = ttk.Treeview(tab_customer, columns=columns_c, show="headings")
+for col in columns_c:
+    customer_table.heading(col, text=col)
+customer_table.pack(fill="both", expand=True)
+
+# ---------- MEAL TAB ----------
+tk.Label(tab_meal, text="Meal ID").pack()
+meal_id_entry = tk.Entry(tab_meal)
+meal_id_entry.pack()
+
+tk.Label(tab_meal, text="Meal Name").pack()
+meal_name_entry = tk.Entry(tab_meal)
+meal_name_entry.pack()
+
+tk.Label(tab_meal, text="Price").pack()
+meal_price_entry = tk.Entry(tab_meal)
+meal_price_entry.pack()
+
+def add_meal():
+    try:
+        mid = meal_id_entry.get()
+        name = meal_name_entry.get()
+        price = meal_price_entry.get()
+        run_query(
+            "INSERT INTO Meal (meal_id, name, price) VALUES (%s, %s, %s)",
+            (mid, name, price)
+        )
+        messagebox.showinfo("Success", "Meal added successfully!")
+        view_meals()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+def view_meals():
+    records = run_query("SELECT * FROM Meal", fetch=True)
+    for row in meal_table.get_children():
+        meal_table.delete(row)
+    for r in records:
+        meal_table.insert("", "end", values=r)
+
+def update_meal():
+    try:
+        mid = meal_id_entry.get().strip()
+        name = meal_name_entry.get()
+        price = meal_price_entry.get()
+
+        if not mid:
+            messagebox.showerror("Error", "Please enter a Meal ID to update.")
+            return
+
+        run_query(
+            "UPDATE Meal SET name=%s, price=%s WHERE meal_id=%s",
+            (name, price, mid)
+        )
+        messagebox.showinfo("Success", "Meal updated successfully!")
+        view_meals()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+def delete_meal():
+    try:
+        mid = meal_id_entry.get()
+        orders = run_query("SELECT * FROM Orders WHERE meal_id=%s", (mid,), fetch=True)
+        if orders:
+            confirm = messagebox.askyesno(
+                "Confirm Delete",
+                f"This meal is included in {len(orders)} orders. Deleting will remove them all. Continue?"
+            )
+            if not confirm:
+                return
+            run_query("DELETE FROM Orders WHERE meal_id=%s", (mid,))
+        
+        run_query("DELETE FROM Meal WHERE meal_id=%s", (mid,))
+        messagebox.showinfo("Success", "Meal and related orders deleted successfully!")
+        view_meals()
+        view_orders()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+btn_add_meal = tk.Button(tab_meal, text="Add Meal", command=add_meal, bg="green", fg="white")
+btn_add_meal.pack(pady=5)
+btn_view_meal = tk.Button(tab_meal, text="View Meals", command=view_meals, bg="blue", fg="white")
+btn_view_meal.pack(pady=5)
+btn_update_meal = tk.Button(tab_meal, text="Update Meal", command=update_meal, bg="orange", fg="white")
+btn_update_meal.pack(pady=5)
+btn_delete_meal = tk.Button(tab_meal, text="Delete Meal", command=delete_meal, bg="red", fg="white")
+btn_delete_meal.pack(pady=5)
+
+columns_m = ("Meal ID", "Name", "Price")
+meal_table = ttk.Treeview(tab_meal, columns=columns_m, show="headings")
+for col in columns_m:
+    meal_table.heading(col, text=col)
+meal_table.pack(fill="both", expand=True)
+
+# ---------- ORDER TAB ----------
+tk.Label(tab_order, text="Order ID").pack()
+order_id_entry = tk.Entry(tab_order)
+order_id_entry.pack()
+
+tk.Label(tab_order, text="Customer ID").pack()
+order_cust_entry = tk.Entry(tab_order)
+order_cust_entry.pack()
+
+tk.Label(tab_order, text="Meal ID").pack()
+order_meal_entry = tk.Entry(tab_order)
+order_meal_entry.pack()
+
+def add_order():
+    try:
+        oid = order_id_entry.get()
+        cid = order_cust_entry.get()
+        mid = order_meal_entry.get()
+        run_query(
+            "INSERT INTO Orders (order_id, customer_id, meal_id) VALUES (%s, %s, %s)",
+            (oid, cid, mid)
+        )
+        messagebox.showinfo("Success", "Order added successfully!")
+        view_orders()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+def view_orders():
+    records = run_query("SELECT * FROM Orders", fetch=True)
+    for row in order_table.get_children():
+        order_table.delete(row)
+    for r in records:
+        order_table.insert("", "end", values=r)
+
+def update_order():
+    try:
+        oid = order_id_entry.get()
+        cid = order_cust_entry.get()
+        mid = order_meal_entry.get()
+
+        if not oid.strip():
+            messagebox.showerror("Error", "Please enter an Order ID to update.")
+            return
+
+        run_query(
+            "UPDATE Orders SET customer_id=%s, meal_id=%s WHERE order_id=%s",
+            (cid, mid, oid)
+        )
+        messagebox.showinfo("Success", "Order updated successfully!")
+        view_orders()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+def delete_order():
+    try:
+        oid = order_id_entry.get().strip()
+        if not oid:
+            messagebox.showerror("Error", "Please enter an Order ID to delete.")
+            return
+
+        confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete Order ID {oid}?")
+        if not confirm:
+            return
+
+        run_query("DELETE FROM Orders WHERE order_id=%s", (oid,))
+        messagebox.showinfo("Success", "Order deleted successfully!")
+        view_orders()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+btn_add_order = tk.Button(tab_order, text="Add Order", command=add_order, bg="green", fg="white")
+btn_add_order.pack(pady=5)
+btn_view_order = tk.Button(tab_order, text="View Orders", command=view_orders, bg="blue", fg="white")
+btn_view_order.pack(pady=5)
+btn_update_order = tk.Button(tab_order, text="Update Order", command=update_order, bg="orange", fg="white")
+btn_update_order.pack(pady=5)
+btn_delete_order = tk.Button(tab_order, text="Delete Order", command=delete_order, bg="red", fg="white")
+btn_delete_order.pack(pady=5)
+
+columns_o = ("Order ID", "Customer ID", "Meal ID")
+order_table = ttk.Treeview(tab_order, columns=columns_o, show="headings")
+for col in columns_o:
+    order_table.heading(col, text=col)
+order_table.pack(fill="both", expand=True)
+
+# ---------- CALCULATE BILL SECTION ----------
+tk.Label(tab_order, text="Customer ID for Bill").pack(pady=5)
+bill_cust_entry = tk.Entry(tab_order)
+bill_cust_entry.pack()
+
+def calculate_bill():
+    cust_id = bill_cust_entry.get()
+    if not cust_id.isdigit():
+        messagebox.showerror("Input Error", "Customer ID must be a number")
+        return
+
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.callproc('Calculate_Bill', [int(cust_id)])
+
+        output = ""
+        for result in cursor.stored_results():
+            rows = result.fetchall()
+            if rows:
+                for row in rows:
+                    output += f"Customer: {row[0]}, Total Bill: {row[1]}\n"
+            else:
+                output = "No records found for this Customer ID"
+
+        messagebox.showinfo("Bill Details", output)
+
+    except Exception as e:
+        messagebox.showerror("Database Error", str(e))
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+btn_calc_bill = tk.Button(tab_order, text="Calculate Bill", command=calculate_bill, bg="orange", fg="white")
+btn_calc_bill.pack(pady=10)
+
+# ---------- RUN APPLICATION ----------
+root.mainloop()
